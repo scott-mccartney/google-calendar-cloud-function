@@ -62,4 +62,3 @@ typings/
 
 # Google Cloud API Credentials
 credentials.json
-google_auth.json
