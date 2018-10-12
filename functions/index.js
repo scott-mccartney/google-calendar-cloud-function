@@ -1,95 +1,91 @@
+/*
+ * A Firebase Cloud Function that uses Google OAuth2 to 
+ * manage a Google user's calendar.
+ * 
+ * @Author: Scott McCartney
+ * @Twitter: @skittlesMc9
+ * @Github: https://github.com/scott-mccartney/google-calendar-cloud-function
+ */
 const {google} = require('googleapis');
-const OAuth2Client = google.auth.OAuth2; 
-// const calendar = google.calendar('v3');
+const OAuth2 = google.auth.OAuth2; 
+const calendar = google.calendar('v3');
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
 
 const fs = require('fs'); 
-const readline = require('readline'); 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']; 
-const TOKEN_PATH = './credentials.json';
 
-exports.getListOfCalendars = functions.https.onRequest((request, response) => {
-    const credentials = readCredentials();
-    console.log('Credentials');
-    console.log(credentials);
+const GOOGLE_CREDENTIALS_FILE_PATH = '../credentials.json';
 
-    const data = authorize(credentials, listEvents);
+admin.initializeApp(functions.config().firebase);
 
-    if (!data) {
-        response.status(500).send('Got here before authenticating');
-    } else {
-        response.status(200).send(data);
-    }
-});
-
-function readCredentials() {
-    try {   
-        const content = fs.readFileSync('client_secret.json');  
-        return JSON.parse(content); 
-    } catch (err) {   
-        return console.log('Error loading client secret file:', err); 
-    }
-}
-
-function authorize(credentials, callback) {   
-    const {client_secret, client_id, redirect_uris} = credentials.web;   
-    let token = {};   
-    const oAuth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
-
-      // Check if we have previously stored a token.   
-    try {
-        token = fs.readFileSync(TOKEN_PATH);   
-    } catch (err) {
-        return getAccessToken(oAuth2Client, callback);   
-    }   
-    oAuth2Client.setCredentials(JSON.parse(token));   
-    callback(oAuth2Client); 
-}
-
-function getAccessToken(oAuth2Client, callback) {   
-    const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: SCOPES,   
-    });   
-    console.log('Authorize this app by visiting this url:', authUrl);   
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,   
-    });   
-    rl.question('Enter the code from that page here: ', (code) => {
-        rl.close();
-        oAuth2Client.getToken(code, (err, token) => {
-            if (err) return callback(err);
-            oAuth2Client.setCredentials(token);
-            // Store the token to disk for later program executions
-            try {
-                fs.writeFileSync(TOKEN_PATH, JSON.stringify(token));
-                console.log('Token stored to', TOKEN_PATH);
-            } catch (err) {
-                console.error(err);
-            }
-        callback(oAuth2Client);
-        });   
-    }); 
-}
-
-function listEvents(auth) {   
-    const calendar = google.calendar({version: 'v3', auth});   
-    calendar.events.list({
+function addEvent(auth) {
+    const response = calendar.events.insert({
+        auth: auth,
         calendarId: 'primary',
-        timeMin: (new Date()).toISOString(),
-        maxResults: 10,
-        singleEvents: true,
-        orderBy: 'startTime',   
-    }, (err, {data}) => {
-        if (err) return console.log('The API returned an error: ' + err);
-        
-        const events = data.items;
-        if (events.length) {
-            return events;      
-        } else {
-          console.log('No upcoming events found.');
-          return 'No events but success';
-        }   
+        resource: {
+          'summary': 'Event 3',
+          'description': 'Sample description',
+          'start': {
+            'dateTime': '2018-11-11T14:00:00',
+            'timeZone': 'EST',
+          },
+          'end': {
+            'dateTime': '2018-11-11T15:00:00',
+            'timeZone': 'EST',
+          },
+        },
+      }, function(err, res) {
+        if (err) {
+          console.log('Error: ' + err);
+          return;
+        }
+        console.log(res);
+        return res;
+      });
+
+      return response;
+}
+
+function cloudFunction() {
+    const googleCredentials = JSON.parse(fs.readFileSync(GOOGLE_CREDENTIALS_FILE_PATH));
+    const oAuth2Client = new OAuth2(
+        googleCredentials.web.client_id,
+        googleCredentials.web.client_secret,
+        googleCredentials.web.redirect_uris[0]
+    );
+
+    oAuth2Client.setCredentials({
+        refresh_token: googleCredentials.refresh_token
     });
-} 
+    addEvent(oAuth2Client);
+}
+
+cloudFunction();
+
+// exports.addEventToCalendar = functions.https.onRequest((request, response) => {
+//     admin.storage().bucket().getFiles('credentials.json').then(file => {
+//         const googleCredentials = {};   // Read from Google Cloud Storage bucket
+//         const oAuth2Client = new OAuth2(
+//             googleCredentials.web.client_id,
+//             googleCredentials.web.client_secret,
+//             googleCredentials.web.redirect_uris[0]
+//         );
+
+//         oAuth2Client.setCredentials({
+//             refresh_token: googleCredentials.refresh_token
+//         });
+//         addEvent(oAuth2Client).then(res => {
+//             response.status(200).send(res);
+//             return;
+//         }).catch(err => {
+//             response.send(500).send('Error adding event: ' + err.message);
+//             console.log(err);
+//             return;  
+//         });
+//         return;
+//     }).catch(err => {
+//         response.send(500).send('Error reading credentials: ' + err.message);
+//         console.log(err);
+//         return;
+//     });
+// });

@@ -61,5 +61,5 @@ typings/
 .next
 
 # Google Cloud API Credentials
-cf_credentials.json
+credentials.json
 google_auth.json
