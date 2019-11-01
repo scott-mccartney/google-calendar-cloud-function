@@ -24,7 +24,7 @@ OAuth2 credentials for the user should be generated, along with the user's refre
 }
 ```
 
-The credentials are generated in the Google Cloud Console and the details to how to generate your specific cloud function's credentials can be found in the more detailed article here (TBD).
+The credentials are generated in the Google Cloud Console and the details to how to generate your specific cloud function's credentials can be found in the more detailed article [here](https://medium.com/@smccartney09/integrating-firebase-cloud-functions-with-google-calendar-api-9a5ac042e869).
 
 ### Deploying the Cloud Function
 
